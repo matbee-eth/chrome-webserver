@@ -181,6 +181,7 @@ var Response = function (socketId) {
 	this._headersSent = false;
 	this._headers = new Headers();
 	this._cookies = new Cookies();
+	this._status = 200;
 }
 
 Response.prototype.write = function(data, cb) {
@@ -190,6 +191,17 @@ Response.prototype.write = function(data, cb) {
 	} else {
 		this._headers.setHeader('Transfer-Encoding', 'chunked');
 	}
+};
+
+Response.prototype._write = function(someString, cb) {
+	var stuff = stringToUint8Array(someString);
+	var outputBuffer = new ArrayBuffer(stuff.length);
+  	var view = new Uint8Array(outputBuffer);
+  	view.set(stuff, 0);
+	socket.write(this._socketId, outputBuffer, function(writeInfo) {
+		console.log('_write writeInfo', writeInfo);
+		cb && cb();
+	});
 };
 
 Response.prototype.send = function(data) {
@@ -206,7 +218,16 @@ Response.prototype.redirect = function(url) {
 	if (this._headersSent) {
 		throw new Error("Headers already sent");
 	}
-	// 
+
+	this._headers.setHeader('Location', url);
+	this._status = 302;
+	this._sendHeaders();
+	this.end();
+};
+
+Response.prototype._sendHeaders = function() {
+	this._write('HTTP/1.1 ' + this._status + ' ' +  STATUS_CODES[this._status] + "\n" + this._headers.toString());
+	this._headersSent = true;
 };
 
 var Headers = function () {
@@ -223,7 +244,12 @@ Headers.prototype.removeHeader = function (key) {
 	delete this._headers[key];
 };
 Headers.prototype.toString = function() {
-	return "";
+	var array = [];
+	for(var key in this._headers) {
+		array.push(key + ": " + this._headers[key]);
+	}
+
+	return array.join('\n');
 };
 
 var Cookies = function () {
