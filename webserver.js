@@ -85,6 +85,15 @@ var arrayBufferToString = function(buffer) {
 	return str;
 };
 
+var stringToArrayBuffer = function(string) {
+	var buffer = new ArrayBuffer(string.length);
+	var view = new Uint8Array(buffer);
+	for(var i = 0; i < string.length; i++) {
+		view[i] = string.charCodeAt(i);
+	}
+	return buffer;
+};
+
 var Server = function () {
 	EventEmitter.call(this);
 	this._host = "127.0.0.1";
@@ -187,11 +196,19 @@ var Response = function (socketId) {
 }
 
 
-Response.prototype.write = function(someString, cb) {
-	var stuff = stringToUint8Array(someString);
-	var outputBuffer = new ArrayBuffer(stuff.length);
-  	var view = new Uint8Array(outputBuffer);
-  	view.set(stuff, 0);
+Response.prototype.write = function(data, cb) {
+	var outputBuffer;
+
+	if (typeof data === 'string') {
+		outputBuffer = stringToArrayBuffer(data);
+	} else if (data instanceof Uint8Array) {
+		outputBuffer = new ArrayBuffer(data.length);
+		var view = new Uint8Array(outputBuffer);
+		view.set(data, 0);
+	} else if (data instanceof ArrayBuffer) {
+		outputBuffer = data;
+	}
+	
 	socket.write(this._socketId, outputBuffer, function(writeInfo) {
 		console.log('write writeInfo', writeInfo);
 		cb && cb();
