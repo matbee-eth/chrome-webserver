@@ -87,40 +87,75 @@ Server.prototype.listen = function(port, host) {
 	this._host = host || this._host;
 	socket.create("tcp", {}, function(_socketInfo) {
 		socketInfo = _socketInfo;
-		socket.listen(socketInfo.socketId, self._host || host, port, 50, function(result) {
-			console.log("LISTENING:", result);
-			socket.accept(socketInfo.socketId, function (acceptInfo) {
-				self._readSocket(socketInfo.socketId, function (string) {
-					chrome.socket.getInfo(socketInfo.socketId, function (result) {
-						var req = new Request(socketInfo.socketId);
-						req.info = result;
 
-						var res = new Response(socketInfo.socketId);
-					})
-				});
-			});
+		socket.listen(socketInfo.socketId, host || self._host, port, 20, function(result) {
+			console.log("LISTENING:", result);
+
+			socket.accept(socketInfo.socketId, self._onAccept.bind(self));
 		});
 	});
 };
-Server.prototype._readSocket = function(socketId, cb) {
-	socket.read(socketId, function(data) {
-		data = arrayBufferToString(readInfo.data);
+
+Server.prototype._onAccept = function(acceptInfo) {
+	var self = this;
+	console.log('accept::', acceptInfo);
+
+	this._readSocket(acceptInfo.socketId, function (requestString) {
+		chrome.socket.getInfo(acceptInfo.socketId, function (result) {
+			console.log('Got Request', result, requestString );
+			var req = new Request(acceptInfo.socketId, result, requestString);
+
+			console.log('Request Object', req);
+			var res = new Response(acceptInfo.socketId);
+		})
+	});
+};
+
+Server.prototype._readSocket = function (socketId, cb) {
+	socket.read(socketId, function(readInfo) {
+		var data = arrayBufferToString(readInfo.data);
 		cb && cb(data);
-		console.log(data);
 	});
 };
 Server.prototype._enableKeepAlive = function (socketId, cb) {
 	chrome.socket.setKeepAlive(socketId, true, 0, cb)
 };
 
-var Request = function (socketId) {
+var Request = function (socketId, info, requestString) {
 	this._socketId = socketId;
 	this._method = null;
-	this._ip = null;
+	this._remoteIp = null;
+	this._remotePort = null;
 	this._path = null;
 	this._headers = new Headers();
 	this._cookies = new Cookies();
 	this._body = null;
+
+	if (info) {
+		this._remoteIp = info.peerAddress;
+		this._remotePort = info.peerPort;
+	}
+
+	if (requestString) {
+		this._parseString(requestString);
+	}
+}
+
+Request.prototype._parseString = function (requestString) {
+	this._method = requestString.substr(0, requestString.indexOf(' '));
+	this._path = requestString.substr(requestString.indexOf(' ') + 1, requestString.indexOf(' HTTP') - requestString.indexOf(' ') - 1);
+	var headerLines = requestString.split('\n');
+	for (var n = 0; n < headerLines.length; n++) {
+		var line = headerLines[n];
+
+		if (line.indexOf(':') > 0) {
+			line = line.split(':');
+			var key = line.shift();
+			var value = line.join(':').trim();
+
+			this._headers.setHeader(key, value);
+		}
+	}
 }
 
 var Response = function (socketId) {
@@ -153,7 +188,7 @@ Headers.prototype.setHeader = function(key, value) {
 	this._headers[key] = value;
 };
 Headers.prototype.removeHeader = function (key) {
-	delete this._headers;
+	delete this._headers[key];
 };
 Headers.prototype.toString = function() {
 	return "";
