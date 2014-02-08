@@ -87,7 +87,7 @@ Server.prototype.listen = function(port, host) {
 	this._host = host || this._host;
 	socket.create("tcp", {}, function(_socketInfo) {
 		socketInfo = _socketInfo;
-		socket.listen(socketInfo.socketId, this._host || host, port, 50, function(result) {
+		socket.listen(socketInfo.socketId, self._host || host, port, 50, function(result) {
 			console.log("LISTENING:", result);
 			socket.accept(socketInfo.socketId, function (acceptInfo) {
 				self._readSocket(socketInfo.socketId, function (string) {
