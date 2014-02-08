@@ -186,22 +186,14 @@ var Response = function (socketId) {
 	this._status = 200;
 }
 
-Response.prototype.write = function(data, cb) {
-	// Set Transfer-Encoding: chunked if headers have not been sent.
-	if (this._headersSent) {
-		
-	} else {
-		this._headers.setHeader('Transfer-Encoding', 'chunked');
-	}
-};
 
-Response.prototype._write = function(someString, cb) {
+Response.prototype.write = function(someString, cb) {
 	var stuff = stringToUint8Array(someString);
 	var outputBuffer = new ArrayBuffer(stuff.length);
   	var view = new Uint8Array(outputBuffer);
   	view.set(stuff, 0);
 	socket.write(this._socketId, outputBuffer, function(writeInfo) {
-		console.log('_write writeInfo', writeInfo);
+		console.log('write writeInfo', writeInfo);
 		cb && cb();
 	});
 };
@@ -214,7 +206,7 @@ Response.prototype.send = function(data) {
 	var thing = stringToUint8Array(data);
 	this._headers.setHeader('Content-Length', thing.length);
 	this._sendHeaders();
-	this._write(data);
+	this.write(data);
 	this.end();
 };
 
@@ -234,7 +226,7 @@ Response.prototype.redirect = function(url) {
 };
 
 Response.prototype._sendHeaders = function() {
-	this._write('HTTP/1.1 ' + this._status + ' ' +  STATUS_CODES[this._status] + "\n" + this._headers.toString() + '\n\n' );
+	this.write('HTTP/1.1 ' + this._status + ' ' +  STATUS_CODES[this._status] + "\n" + this._headers.toString() + '\n\n' );
 	this._headersSent = true;
 };
 
