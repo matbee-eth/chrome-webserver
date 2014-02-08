@@ -78,6 +78,7 @@ var arrayBufferToString = function(buffer) {
 
 var Server = function () {
 	this._host = "127.0.0.1";
+	this._socketId = null;
 }
 Server.prototype.createServer = function(cb) {
 	this._cb = cb;
@@ -86,26 +87,27 @@ Server.prototype.listen = function(port, host) {
 	var self = this;
 	this._host = host || this._host;
 	socket.create("tcp", {}, function(_socketInfo) {
-		socketInfo = _socketInfo;
+		self._socketId = _socketInfo.socketId;
 
-		socket.listen(socketInfo.socketId, host || self._host, port, 20, function(result) {
+		socket.listen(self._socketId, host || self._host, port, 20, function(result) {
 			console.log("LISTENING:", result);
 
-			socket.accept(socketInfo.socketId, self._onAccept.bind(self));
+			socket.accept(self._socketId, self._onAccept.bind(self));
 		});
 	});
 };
 
 Server.prototype._onAccept = function(acceptInfo) {
 	var self = this;
+	socket.accept(this._socketId, self._onAccept.bind(self));
 	console.log('accept::', acceptInfo);
 
 	this._readSocket(acceptInfo.socketId, function (requestString) {
 		chrome.socket.getInfo(acceptInfo.socketId, function (result) {
 			console.log('Got Request', result, requestString );
 			var req = new Request(acceptInfo.socketId, result, requestString);
-
 			console.log('Request Object', req);
+
 			var res = new Response(acceptInfo.socketId);
 		})
 	});
@@ -158,7 +160,12 @@ Request.prototype._parseString = function (requestString) {
 	}
 }
 
+Request.prototype.getHeader = function(key) {
+	return this._headers.getHeader(key);
+};
+
 var Response = function (socketId) {
+	this._socketId = socketId;
 	this._headersSent = false;
 	this._headers = new Headers();
 	this._cookies = new Cookies();
@@ -166,17 +173,27 @@ var Response = function (socketId) {
 
 Response.prototype.write = function(data, cb) {
 	// Set Transfer-Encoding: chunked if headers have not been sent.
+	if (this._headersSent) {
+		
+	} else {
+		this._headers.setHeader('Transfer-Encoding', 'chunked');
+	}
 };
 
 Response.prototype.send = function(data) {
-	// 
+	if (this._headersSent) {
+		throw new Error("Headers already sent");
+	}
 };
 
 Response.prototype.end = function(data) {
-	// 
+	socket.destroy(this._socketId);
 };
 
 Response.prototype.redirect = function(url) {
+	if (this._headersSent) {
+		throw new Error("Headers already sent");
+	}
 	// 
 };
 
@@ -185,7 +202,10 @@ var Headers = function () {
 	this._headers
 }
 Headers.prototype.setHeader = function(key, value) {
-	this._headers[key] = value;
+	this._headers[key.toLowerCase()] = value;
+};
+Headers.prototype.getHeader = function(key) {
+	return this._headers[key.toLowerCase()] || null;
 };
 Headers.prototype.removeHeader = function (key) {
 	delete this._headers[key];
