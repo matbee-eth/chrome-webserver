@@ -102,8 +102,9 @@ Server.prototype.listen = function(port, host) {
 
 		socket.listen(self._socketId, host || self._host, port, 20, function(result) {
 			console.log("LISTENING:", result);
-
-			socket.accept(self._socketId, self._onAccept.bind(self));
+			if (result == 0) {
+				socket.accept(self._socketId, self._onAccept.bind(self));
+			}
 		});
 	});
 };
@@ -119,7 +120,8 @@ Server.prototype._onAccept = function(acceptInfo) {
 			var res = new Response(acceptInfo.socketId);
 
 			// Do standard Response setup here
-			
+			res.setHeader('Content-Type', 'text/plain');
+
 			self.emit('request', req, res);
 		})
 	});
@@ -208,6 +210,12 @@ Response.prototype.send = function(data) {
 	if (this._headersSent) {
 		throw new Error("Headers already sent");
 	}
+
+	var thing = stringToUint8Array(data);
+	this._headers.setHeader('Content-Length', thing.length);
+	this._sendHeaders();
+	this._write(data);
+	this.end();
 };
 
 Response.prototype.end = function(data) {
@@ -226,8 +234,12 @@ Response.prototype.redirect = function(url) {
 };
 
 Response.prototype._sendHeaders = function() {
-	this._write('HTTP/1.1 ' + this._status + ' ' +  STATUS_CODES[this._status] + "\n" + this._headers.toString());
+	this._write('HTTP/1.1 ' + this._status + ' ' +  STATUS_CODES[this._status] + "\n" + this._headers.toString() + '\n\n' );
 	this._headersSent = true;
+};
+
+Response.prototype.setHeader = function(key, value) {
+	this._headers.setHeader(key, value);
 };
 
 var Headers = function () {
@@ -245,10 +257,20 @@ Headers.prototype.removeHeader = function (key) {
 };
 Headers.prototype.toString = function() {
 	var array = [];
+	if (this.getHeader('content-type')) {
+		array.push('Content-Type: ' + this.getHeader('content-type'));
+	}
+	if (this.getHeader('content-length')) {
+		array.push('Content-Length: ' + this.getHeader('content-length'));
+	}
 	for(var key in this._headers) {
-		array.push(key + ": " + this._headers[key]);
+		if (key !== 'content-type' && key !== 'content-length') {
+			var fancyKey = key.replace(/^([a-z])/, function(x) { return x.toUpperCase(); }).replace(/-([a-z])/g, function(x) { return x.toUpperCase(); });
+			array.push(fancyKey + ": " + this._headers[key]);
+		}
 	}
 
+	console.log('headerToString', array);
 	return array.join('\n');
 };
 
