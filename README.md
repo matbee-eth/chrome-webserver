@@ -1,7 +1,7 @@
 Chrome App Webserver
 =======
 
-#Server
+##Server
 ```
 Server.listen(port, hostname)
 Server.on(path, callback);
@@ -9,7 +9,7 @@ Server.on('request', callback)
     callback(request, response);
 ```
 ----------
-#Request
+##Request
 ```
 Request.getHeader(header)
 Request.isStreaming()
@@ -20,7 +20,7 @@ If client is requesting byte range, aka, range=bytes=0-
 callback(int, int)
 ```
 ----------
-#Response
+##Response
 ```
 Response.write()
 Response.send()
@@ -31,7 +31,7 @@ Response.setStatusCode(code)
 	- Status code. ex. 404 = 404-Not Found
 ```
 ----------
-#Example
+##Example
 ```
 var server = new Server();
 server.listen(5556, '127.0.0.1');
