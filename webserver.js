@@ -189,6 +189,22 @@ Request.prototype.getRange = function (cb) {
 	}
 }
 
+Request.prototype.setChunkSize = function (size) {
+	this._chunkSize = size;
+}
+
+Request.prototype.getChunkSize = function (cb) {
+	if (this.isStreaming()) {
+		if (this._chunkSize) {
+			cb(this._chunkSize);
+		} else {
+			this.getRange(function (start, end) {
+				cb(end-start);
+			});
+		}
+	}
+}
+
 Request.prototype._parseString = function (requestString) {
 	this._method = requestString.substr(0, requestString.indexOf(' '));
 	this._path = requestString.substr(requestString.indexOf(' ') + 1, requestString.indexOf(' HTTP') - requestString.indexOf(' ') - 1);
