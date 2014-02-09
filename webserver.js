@@ -130,7 +130,7 @@ Server.prototype._onAccept = function(acceptInfo) {
 			if (req.getHeader("Connection") == "keep-alive") {
 				// result == boolean.
 				self._enableKeepAlive(acceptInfo.socketId, function (result) {
-					console.log("KeepAlive", acceptInfo.socketId, result);
+					// console.log("KeepAlive", acceptInfo.socketId, result);
 				});
 			}
 			console.log(acceptInfo.socketId, req._headers);
@@ -138,7 +138,8 @@ Server.prototype._onAccept = function(acceptInfo) {
 			res.setHeader('Content-Type', 'text/plain');
 
 			self.emit('request', req, res);
-		})
+			self.emit(req._path, req, res);
+		});
 	});
 };
 
