@@ -12,10 +12,12 @@ Request.isStreaming()
 Request.getRange(callback)
  - If client is requesting byte range, aka, range=bytes=0-
  - callback(int, int)
+
 #Response
 Response.write()
 Response.send()
 Response.end()
 Response.redirect(url)
 Response.setHeader(header, value);
+
 #Example
