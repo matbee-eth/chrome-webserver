@@ -131,6 +131,9 @@ Server.prototype._onAccept = function(acceptInfo) {
 				// result == boolean.
 				self._enableKeepAlive(acceptInfo.socketId, function (result) {
 					// console.log("KeepAlive", acceptInfo.socketId, result);
+					self._readSocket(acceptInfo.socketId, function (requestString) {
+						console.log("KeepAlive _readSocket", requestString);
+					});
 				});
 			}
 			console.log(acceptInfo.socketId, req._headers);
