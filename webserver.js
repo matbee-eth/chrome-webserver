@@ -270,6 +270,32 @@ Response.prototype.send = function(data) {
 	this.end();
 };
 
+Response.prototype.stream = function (req, data) {
+	if (this._headersSent) {
+		throw new Error("Headers already sent");
+	}
+	this.setHeader("Content-Type", data.type);
+	this.setHeader("Content-Length", data.size);
+	this.setHeader('Accept-Ranges', 'bytes');
+	if (req.isStreaming()) {
+		req.getRange(function (start, end) {
+			console.log("getRange", start, end);
+			this.setStatusCode(206);
+			req.getChunkSize(function (chunkSize) {
+				if (chunkSize == 0) {
+					req.setChunkSize(10000);
+					chunkSize = 10000;
+				}
+				if (start == 0 && end == 0) {
+					end = chunkSize;
+				}
+				var chunk = data.slice(start, end);
+				this.setHeader("Content-Range", "bytes "+start+"-"+end+"/"+data.size); // Should match content-length? Also use byte-byte/* for unknown lengths.
+			});
+		});
+	}
+};
+
 Response.prototype.end = function(data) {
 	socket.destroy(this._socketId);
 };
