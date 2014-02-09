@@ -253,8 +253,8 @@ Response.prototype.write = function(data, cb) {
 	}
 	
 	socket.write(this._socketId, outputBuffer, function(writeInfo) {
-		// console.log('write writeInfo', writeInfo);
-		cb && cb();
+		console.log('write writeInfo', writeInfo);
+		cb && cb(writeInfo);
 	});
 };
 
@@ -266,37 +266,53 @@ Response.prototype.send = function(data) {
 	var thing = stringToUint8Array(data);
 	this._headers.setHeader('Content-Length', thing.length);
 	this._sendHeaders();
-	this.write(data);
-	this.end();
+	var self = this;
+	this.write(data, function () {
+		self.end();
+	});
 };
 
 Response.prototype.stream = function (req, data) {
+	var self = this;
 	if (this._headersSent) {
 		throw new Error("Headers already sent");
 	}
 	this.setHeader("Content-Type", data.type);
-	this.setHeader("Content-Length", data.size);
 	this.setHeader('Accept-Ranges', 'bytes');
+	// this.setHeader('Transfer-Encoding', 'chunked');
+	this.setHeader('Connection', 'keep-alive');
 	if (req.isStreaming()) {
 		req.getRange(function (start, end) {
 			console.log("getRange", start, end);
-			this.setStatusCode(206);
+			self.setStatusCode(206);
 			req.getChunkSize(function (chunkSize) {
 				if (chunkSize == 0) {
 					req.setChunkSize(10000);
 					chunkSize = 10000;
 				}
-				if (start == 0 && end == 0) {
-					end = chunkSize;
+				if (start == 0 || end == 0) {
+					end = start+chunkSize;
 				}
-				var chunk = data.slice(start, end);
-				this.setHeader("Content-Range", "bytes "+start+"-"+end+"/"+data.size); // Should match content-length? Also use byte-byte/* for unknown lengths.
+				var chunk = data.slice(start, end, data.type);
+				self.setHeader("Content-Length", chunk.size);
+				self.setHeader("Content-Range", "bytes "+start+"-"+(end+1)+"/"+data.size); // Should match content-length? Also use byte-byte/* for unknown lengths.
+				self._sendHeaders();
+				var fileReader = new FileReader();
+				fileReader.onload = function () {
+					self.write(this.result, function (writeInfo) {
+						if (writeInfo.bytesWritten == chunk.size) {
+							self.end();
+						}
+					});
+				};
+				fileReader.readAsArrayBuffer(chunk);
 			});
 		});
 	}
 };
 
 Response.prototype.end = function(data) {
+	socket.disconnect(this._socketId);
 	socket.destroy(this._socketId);
 };
 
