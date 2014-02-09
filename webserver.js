@@ -185,8 +185,8 @@ Request.prototype.getRange = function (cb) {
 		var range = this.getHeader("range");
 		range = range.split("bytes=")[1];
 		range = range.split("-");
-		var rangeOne = parseInt(range[0]);
-		var rangeTwo = parseInt(range[1]);
+		var rangeOne = parseInt(range[0], 10);
+		var rangeTwo = parseInt(range[1], 10);
 		cb(rangeOne ? rangeOne : 0, rangeTwo ? rangeTwo : 0);
 	} else {
 		cb(null, null);
@@ -293,9 +293,13 @@ Response.prototype.stream = function (req, data) {
 				if (start == 0 || end == 0) {
 					end = start+chunkSize;
 				}
-				var chunk = data.slice(start, end, data.type);
+				if (end > data.size) {
+					end = data.size-1;
+				}
+				console.log("getRange", start, end, chunkSize);
+				var chunk = data.slice(start, end+1, data.type);
 				self.setHeader("Content-Length", chunk.size);
-				self.setHeader("Content-Range", "bytes "+start+"-"+(end+1)+"/"+data.size); // Should match content-length? Also use byte-byte/* for unknown lengths.
+				self.setHeader("Content-Range", "bytes "+start+"-"+end+"/"+data.size); // Should match content-length? Also use byte-byte/* for unknown lengths.
 				self._sendHeaders();
 				var fileReader = new FileReader();
 				fileReader.onload = function () {
