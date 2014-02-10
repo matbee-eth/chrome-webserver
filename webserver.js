@@ -132,11 +132,11 @@ Server.prototype._onAccept = function(acceptInfo) {
 				self._enableKeepAlive(acceptInfo.socketId, function (result) {
 					// console.log("KeepAlive", acceptInfo.socketId, result);
 					self._readSocket(acceptInfo.socketId, function (requestString) {
-						console.log("KeepAlive _readSocket", requestString);
+						// console.log("KeepAlive _readSocket", requestString);
 					});
 				});
 			}
-			console.log(acceptInfo.socketId, req._headers);
+			// console.log(acceptInfo.socketId, req._headers);
 			// Do standard Response setup here
 			res.setHeader('Content-Type', 'text/plain');
 
@@ -257,7 +257,7 @@ Response.prototype.write = function(data, cb) {
 	}
 	
 	socket.write(this._socketId, outputBuffer, function(writeInfo) {
-		console.log('write writeInfo', writeInfo);
+		// console.log('write writeInfo', writeInfo);
 		cb && cb(writeInfo);
 	});
 };
@@ -296,7 +296,7 @@ Response.prototype.stream = function (req, data) {
 				if (end == 0) {
 					end = start+chunkSize;
 				}
-				console.log("getRange", start, end, chunkSize);
+				// console.log("getRange", start, end, chunkSize);
 				var chunk = data.slice(start, end + 1);
 				end = start + chunk.size - 1;
 				self.setHeader("Content-Length", chunk.size);
@@ -306,11 +306,11 @@ Response.prototype.stream = function (req, data) {
 				fileReader.onload = function () {
 					self.write(this.result, function (writeInfo) {
 						if (writeInfo.bytesWritten == chunk.size) {
-							console.log("kill it.");
+							// console.log("kill it.");
 							self.end();
 						} else {
-							console.log("wtf... something strange, yo", chunk.size, chunk, start, end);
-							console.log("Content-Range", "bytes "+start+"-"+end+"/"+data.size);
+							// console.log("wtf... something strange, yo", chunk.size, chunk, start, end);
+							// console.log("Content-Range", "bytes "+start+"-"+end+"/"+data.size);
 						}
 					});
 				};
