@@ -291,7 +291,7 @@ Response.prototype.stream = function (req, data) {
 			self.setStatusCode(206);
 			req.getChunkSize(function (chunkSize) {
 				if (chunkSize == 0) {
-					chunkSize = 50000;
+					chunkSize = 500000;
 				}
 				if (end == 0) {
 					end = start+chunkSize;
