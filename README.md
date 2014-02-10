@@ -29,6 +29,7 @@ Response.redirect(url)
 Response.setHeader(header, value);
 Response.setStatusCode(code)
 	- Status code. ex. 404 = 404-Not Found
+Response.stream(Blob, Request)
 ```
 ----------
 ##Example
