@@ -206,7 +206,7 @@ Request.prototype.getChunkSize = function (cb) {
 				if (end == 0) {
 					end = start;
 				}
-				console.log("Start:", start, "End:", end, "Final?", end-start);
+				// console.log("Start:", start, "End:", end, "Final?", end-start);
 				cb(end-start);
 			});
 		}
@@ -287,21 +287,17 @@ Response.prototype.stream = function (req, data) {
 	this.setHeader('Connection', 'keep-alive');
 	if (req.isStreaming()) {
 		req.getRange(function (start, end) {
-			console.log("getRange", start, end);
+			// console.log("getRange", start, end);
 			self.setStatusCode(206);
 			req.getChunkSize(function (chunkSize) {
 				if (chunkSize == 0) {
-					req.setChunkSize(500000);
 					chunkSize = 500000;
 				}
 				if (start == 0 || end == 0) {
 					end = start+chunkSize;
 				}
-				if (end > data.size) {
-					end = data.size-1;
-				}
 				console.log("getRange", start, end, chunkSize);
-				var chunk = data.slice(start, end, data.type);
+				var chunk = data.slice(start, end+1, data.type);
 				self.setHeader("Content-Length", chunk.size);
 				self.setHeader("Content-Range", "bytes "+start+"-"+end+"/"+data.size); // Should match content-length? Also use byte-byte/* for unknown lengths.
 				self._sendHeaders();
@@ -309,6 +305,7 @@ Response.prototype.stream = function (req, data) {
 				fileReader.onload = function () {
 					self.write(this.result, function (writeInfo) {
 						if (writeInfo.bytesWritten == chunk.size) {
+							console.log("kill it.");
 							self.end();
 						}
 					});
