@@ -121,6 +121,14 @@ Server.prototype.listen = function(port, host) {
 			console.log("LISTENING:", result);
 			if (result == 0) {
 				socket.accept(self._socketId, self._onAccept.bind(self));
+
+				chrome.storage.local.get("socketIds", function (socketIds) {
+					if (!socketIds) {
+						socketIds = [];
+					}
+					socketIds.push(self._socketId);
+					chrome.storage.local.set("socketIds", socketIds);
+				});
 			}
 		});
 	});
