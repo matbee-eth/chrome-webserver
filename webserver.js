@@ -227,7 +227,7 @@ Request.prototype.getChunkSize = function (cb) {
 			if (end == 0) {
 				end = start;
 			}
-			cb(end-start==0?(self._chunkSize || 10000) : end-start);
+			cb((end-start==0)?(self._chunkSize || 10000) : (end-start));
 		});
 	}
 }
