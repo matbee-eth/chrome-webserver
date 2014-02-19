@@ -312,7 +312,7 @@ Response.prototype.stream = function (req, data) {
 			self.setStatusCode(206);
 			req.getChunkSize(function (chunkSize) {
 				if (chunkSize == 0) {
-					chunkSize = self._chunkSize || 50000;
+					chunkSize = self._chunkSize || 300000;
 				}
 				if (end == 0) {
 					end = start+chunkSize;
@@ -323,19 +323,26 @@ Response.prototype.stream = function (req, data) {
 				self.setHeader("Content-Length", chunk.size);
 				self.setHeader("Content-Range", "bytes "+start+"-"+end+"/"+data.size); // Should match content-length? Also use byte-byte/* for unknown lengths.
 				self._sendHeaders();
-				var fileReader = new FileReader();
-				fileReader.onload = function () {
-					self.write(this.result, function (writeInfo) {
-						if (writeInfo.bytesWritten == chunk.size) {
-							// console.log("kill it.");
-							self.end();
-						} else {
-							console.log("wtf... something strange, yo", chunk.size, chunk, start, end);
-							console.log("Content-Range", "bytes "+start+"-"+end+"/"+data.size);
-						}
-					});
-				};
-				fileReader.readAsArrayBuffer(chunk);
+				var numChunks = 20;
+				var _miniChunkSize = Math.ceil(chunk.size / numChunks);
+				var fileChunkMachineMan = function (chunkNum) {
+					var newChunk = chunk.slice(_miniChunkSize * chunkNum, (_miniChunkSize * chunkNum) + _miniChunkSize);
+					var fileReader = new FileReader();
+					fileReader.onload = function () {
+						self.write(this.result, function (writeInfo) {
+							if (chunkNum == numChunks) {
+								self.end();
+							} else {
+								fileChunkMachineMan(chunkNum+1);
+								// console.log("wtf... something strange, yo", chunk.size, chunk, start, end);
+								// console.log("Content-Range", "bytes "+start+"-"+end+"/"+data.size);
+							}
+						});
+					};
+					fileReader.readAsArrayBuffer(newChunk);
+				}
+				fileChunkMachineMan(0);
+		
 			});
 		});
 	} else {
