@@ -221,12 +221,13 @@ Request.prototype.setChunkSize = function (size) {
 }
 
 Request.prototype.getChunkSize = function (cb) {
+	var self = this;
 	if (this.isStreaming()) {
 		this.getRange(function (start, end) {
 			if (end == 0) {
 				end = start;
 			}
-			cb(end-start==0?(this._chunkSize || 10000) : end-start);
+			cb(end-start==0?(self._chunkSize || 10000) : end-start);
 		});
 	}
 }
@@ -311,7 +312,7 @@ Response.prototype.stream = function (req, data) {
 			self.setStatusCode(206);
 			req.getChunkSize(function (chunkSize) {
 				if (chunkSize == 0) {
-					chunkSize = this._chunkSize || 50000;
+					chunkSize = self._chunkSize || 50000;
 				}
 				if (end == 0) {
 					end = start+chunkSize;
