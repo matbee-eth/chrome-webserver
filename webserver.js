@@ -318,8 +318,7 @@ Response.prototype.stream = function (req, data) {
 					end = start+chunkSize;
 				}
 				// console.log("getRange", start, end, chunkSize);
-				// var chunk = data.slice(start, end + 1);
-				var chunk = data.slice(start, data.size);
+				var chunk = data.slice(start, end + 1);
 				end = start + chunk.size - 1;
 				self.setHeader("Content-Length", chunk.size);
 				self.setHeader("Content-Range", "bytes "+start+"-"+end+"/"+data.size); // Should match content-length? Also use byte-byte/* for unknown lengths.
