@@ -142,6 +142,7 @@ Server.prototype._onAccept = function(acceptInfo) {
 	this._readSocket(acceptInfo.socketId, function (requestString) {
 		chrome.socket.getInfo(acceptInfo.socketId, function (result) {
 			var req = new Request(acceptInfo.socketId, result, requestString);
+			req.setChunkSize(self._chunkSize);
 			var res = new Response(acceptInfo.socketId);
 			if (req.getHeader("Connection") == "keep-alive") {
 				// result == boolean.
@@ -170,6 +171,12 @@ Server.prototype._readSocket = function (socketId, cb) {
 };
 Server.prototype._enableKeepAlive = function (socketId, cb) {
 	chrome.socket.setKeepAlive(socketId, true, 0, cb)
+};
+Server.prototype.setChunkSize = function (chunkSize) {
+	this._chunkSize = chunkSize;
+};
+Server.prototype.getChunkSize = function () {
+	return this._chunkSize;
 };
 
 var Request = function (socketId, info, requestString) {
@@ -215,17 +222,12 @@ Request.prototype.setChunkSize = function (size) {
 
 Request.prototype.getChunkSize = function (cb) {
 	if (this.isStreaming()) {
-		if (this._chunkSize) {
-			cb(this._chunkSize);
-		} else {
-			this.getRange(function (start, end) {
-				if (end == 0) {
-					end = start;
-				}
-				// console.log("Start:", start, "End:", end, "Final?", end-start);
-				cb(end-start);
-			});
-		}
+		this.getRange(function (start, end) {
+			if (end == 0) {
+				end = start;
+			}
+			cb(end-start==0?(this._chunkSize || 10000) : end-start);
+		});
 	}
 }
 
@@ -304,10 +306,12 @@ Response.prototype.stream = function (req, data) {
 	if (req.isStreaming()) {
 		req.getRange(function (start, end) {
 			// console.log("getRange", start, end);
+			start = start || 0;
+			end = end || 0;
 			self.setStatusCode(206);
 			req.getChunkSize(function (chunkSize) {
 				if (chunkSize == 0) {
-					chunkSize = 500000;
+					chunkSize = this._chunkSize || 50000;
 				}
 				if (end == 0) {
 					end = start+chunkSize;
@@ -325,14 +329,16 @@ Response.prototype.stream = function (req, data) {
 							// console.log("kill it.");
 							self.end();
 						} else {
-							// console.log("wtf... something strange, yo", chunk.size, chunk, start, end);
-							// console.log("Content-Range", "bytes "+start+"-"+end+"/"+data.size);
+							console.log("wtf... something strange, yo", chunk.size, chunk, start, end);
+							console.log("Content-Range", "bytes "+start+"-"+end+"/"+data.size);
 						}
 					});
 				};
 				fileReader.readAsArrayBuffer(chunk);
 			});
 		});
+	} else {
+		console.log("NOT STREAMING YO");
 	}
 };
 
