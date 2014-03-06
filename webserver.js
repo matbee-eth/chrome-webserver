@@ -146,12 +146,12 @@ Server.prototype._onAccept = function(acceptInfo) {
 			var res = new Response(acceptInfo.socketId);
 			if (req.getHeader("Connection") == "keep-alive") {
 				// result == boolean.
-				self._enableKeepAlive(acceptInfo.socketId, function (result) {
+				// self._enableKeepAlive(acceptInfo.socketId, function (result) {
 					// console.log("KeepAlive", acceptInfo.socketId, result);
-					self._readSocket(acceptInfo.socketId, function (requestString) {
+					// self._readSocket(acceptInfo.socketId, function (requestString) {
 						// console.log("KeepAlive _readSocket", requestString);
-					});
-				});
+					// });
+				// });
 			}
 			// console.log(acceptInfo.socketId, req._headers);
 			// Do standard Response setup here
@@ -346,6 +346,9 @@ Response.prototype.stream = function (req, data) {
 			});
 		});
 	} else {
+		self.setHeader("Content-Length", data.size);
+		self._sendHeaders();
+		self.end();
 		console.log("NOT STREAMING YO");
 	}
 };
