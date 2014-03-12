@@ -157,8 +157,12 @@ Server.prototype._onAccept = function(acceptInfo) {
 			// Do standard Response setup here
 			res.setHeader('Content-Type', 'text/plain');
 
-			self.emit('request', req, res);
-			self.emit(req._path, req, res);
+			if (req._method.toLowerCase() === 'options') {
+				self.emit('OPTIONS', req, res);
+			} else {
+				self.emit('request', req, res);
+				self.emit(req._path, req, res);
+			}
 		});
 	});
 };
