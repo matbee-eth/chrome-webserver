@@ -1,3 +1,7 @@
+
+
+
+
 /*!
  * EventEmitter v4.2.7 - git.io/ee
  * Oliver Caldwell
@@ -208,16 +212,19 @@ Request.prototype.isStreaming = function () {
 }
 
 Request.prototype.getRange = function (cb) {
-	if (this.isStreaming()) {
-		var range = this.getHeader("range");
-		range = range.split("bytes=")[1];
-		range = range.split("-");
-		var rangeOne = parseInt(range[0], 10);
-		var rangeTwo = parseInt(range[1], 10);
-		cb(rangeOne ? rangeOne : 0, rangeTwo ? rangeTwo : 0);
-	} else {
-		cb(null, null);
-	}
+	var self = this;
+	// setTimeout(function () {
+		if (self.isStreaming()) {
+			var range = self.getHeader("range");
+			range = range.split("bytes=")[1];
+			range = range.split("-");
+			var rangeOne = parseInt(range[0], 10);
+			var rangeTwo = parseInt(range[1], 10);
+			cb(rangeOne ? rangeOne : 0, rangeTwo ? rangeTwo : 0);
+		} else {
+			cb(null, null);
+		}
+	// }, 5)
 }
 
 Request.prototype.setChunkSize = function (size) {
@@ -226,14 +233,18 @@ Request.prototype.setChunkSize = function (size) {
 
 Request.prototype.getChunkSize = function (cb) {
 	var self = this;
-	if (this.isStreaming()) {
-		this.getRange(function (start, end) {
-			if (end == 0) {
-				end = start;
-			}
-			cb((end-start==0)?(self._chunkSize || 10000) : (end-start));
-		});
-	}
+	// setTimeout(function () {
+		if (self.isStreaming()) {
+			self.getRange(function (start, end) {
+				if (end == 0) {
+					end = start;
+				}
+				cb((end-start==0)?(self._chunkSize || 10000) : (end-start));
+			});
+		} else {
+			cb(0,0);
+		}
+	// }, 5);
 }
 
 Request.prototype._parseString = function (requestString) {
@@ -267,22 +278,30 @@ var Response = function (socketId) {
 
 
 Response.prototype.write = function(data, cb) {
-	var outputBuffer;
+	var self = this;
+	// setTimeout(function () {
+		var outputBuffer;
 
-	if (typeof data === 'string') {
-		outputBuffer = stringToArrayBuffer(data);
-	} else if (data instanceof Uint8Array) {
-		outputBuffer = new ArrayBuffer(data.length);
-		var view = new Uint8Array(outputBuffer);
-		view.set(data, 0);
-	} else if (data instanceof ArrayBuffer) {
-		outputBuffer = data;
-	}
-	
-	socket.write(this._socketId, outputBuffer, function(writeInfo) {
-		// console.log('write writeInfo', writeInfo);
-		cb && cb(writeInfo);
-	});
+		if (typeof data === 'string') {
+			outputBuffer = stringToArrayBuffer(data);
+			// outputBuffer = data;
+		} else if (data instanceof Uint8Array) {
+			outputBuffer = data.buffer;
+			// var view = new Uint8Array(outputBuffer);
+			// view.set(data, 0);
+		} else if (data instanceof ArrayBuffer) {
+			outputBuffer = data;
+		} else {
+			outputBuffer = data;
+		}
+		
+		socket.write(self._socketId, outputBuffer, function(writeInfo) {
+			// console.log('write writeInfo', writeInfo);
+			// setTimeout(function () {
+				cb && cb(writeInfo);
+			// }, 5);
+		});
+	// }, 5);
 };
 
 Response.prototype.send = function(data) {
@@ -299,7 +318,7 @@ Response.prototype.send = function(data) {
 	});
 };
 
-Response.prototype.stream = function (req, data) {
+Response.prototype.stream = function (req, data, _chunkSize) {
 	var self = this;
 	if (this._headersSent) {
 		throw new Error("Headers already sent");
@@ -308,7 +327,7 @@ Response.prototype.stream = function (req, data) {
 	this.setHeader('Accept-Ranges', 'bytes');
 	// this.setHeader('Transfer-Encoding', 'chunked');
 	// this.setHeader('Connection', 'keep-alive');
-	if (req.isStreaming()) {
+	if (req._method == "GET" || req.isStreaming()) {
 		req.getRange(function (start, end) {
 			// console.log("getRange", start, end);
 			start = start || 0;
@@ -316,11 +335,18 @@ Response.prototype.stream = function (req, data) {
 			self.setStatusCode(206);
 			req.getChunkSize(function (chunkSize) {
 				if (chunkSize == 0) {
-					chunkSize = self._chunkSize || 300000;
+					chunkSize = self._chunkSize || 5242880;
+				} else if (_chunkSize) {
+					chunkSize = _chunkSize;
+					end = start + chunkSize;
 				}
 				if (end == 0) {
 					end = start+chunkSize;
 				}
+				// if (!req.isStreaming()) {
+				// 	start = 0;
+				// 	end = data.size;
+				// }
 				// console.log("getRange", start, end, chunkSize);
 				var chunk = data.slice(start, end + 1);
 				end = start + chunk.size - 1;
@@ -345,15 +371,17 @@ Response.prototype.stream = function (req, data) {
 					};
 					fileReader.readAsArrayBuffer(newChunk);
 				}
-				fileChunkMachineMan(0);
+				// setTimeout(function () {
+					fileChunkMachineMan(0);
+				// }, 5);
 		
 			});
 		});
-	} else {
+	} else if (req._method == "HEAD") {
 		self.setHeader("Content-Length", data.size);
-		self._sendHeaders();
-		self.end();
-		console.log("NOT STREAMING YO");
+		self._sendHeaders(function () {
+			self.end();
+		});
 	}
 };
 
@@ -377,8 +405,8 @@ Response.prototype.setStatusCode = function(code) {
 	this._status = code;
 };
 
-Response.prototype._sendHeaders = function() {
-	this.write('HTTP/1.1 ' + this._status + ' ' +  STATUS_CODES[this._status] + "\n" + this._headers.toString() + '\n\n' );
+Response.prototype._sendHeaders = function(cb) {
+	this.write('HTTP/1.1 ' + this._status + ' ' +  STATUS_CODES[this._status] + "\n" + this._headers.toString() + '\n\n', cb);
 	this._headersSent = true;
 };
 
