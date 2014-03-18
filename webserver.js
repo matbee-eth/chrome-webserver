@@ -304,10 +304,12 @@ Response.prototype.stream = function (req, data) {
 	if (req.isStreaming()) {
 		req.getRange(function (start, end) {
 			// console.log("getRange", start, end);
+			start = start || 0;
+			end = end || 0;
 			self.setStatusCode(206);
 			req.getChunkSize(function (chunkSize) {
 				if (chunkSize == 0) {
-					chunkSize = 500000;
+					chunkSize = 50000;
 				}
 				if (end == 0) {
 					end = start+chunkSize;
@@ -325,14 +327,16 @@ Response.prototype.stream = function (req, data) {
 							// console.log("kill it.");
 							self.end();
 						} else {
-							// console.log("wtf... something strange, yo", chunk.size, chunk, start, end);
-							// console.log("Content-Range", "bytes "+start+"-"+end+"/"+data.size);
+							console.log("wtf... something strange, yo", chunk.size, chunk, start, end);
+							console.log("Content-Range", "bytes "+start+"-"+end+"/"+data.size);
 						}
 					});
 				};
 				fileReader.readAsArrayBuffer(chunk);
 			});
 		});
+	} else {
+		console.log("NOT STREAMING YO");
 	}
 };
 
