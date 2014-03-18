@@ -1,7 +1,3 @@
-
-
-
-
 /*!
  * EventEmitter v4.2.7 - git.io/ee
  * Oliver Caldwell
