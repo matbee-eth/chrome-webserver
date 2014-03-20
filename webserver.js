@@ -1,7 +1,3 @@
-
-
-
-
 /*!
  * EventEmitter v4.2.7 - git.io/ee
  * Oliver Caldwell
@@ -167,6 +163,7 @@ Server.prototype._onAccept = function(acceptInfo) {
 				self.emit('request', req, res);
 				self.emit(req._path, req, res);
 			}
+			self.emit(req._method.toLowerCase() + ":" + req._path);
 		});
 	});
 };
@@ -185,6 +182,24 @@ Server.prototype.setChunkSize = function (chunkSize) {
 };
 Server.prototype.getChunkSize = function () {
 	return this._chunkSize;
+};
+Server.prototype.get = function(path) {
+	this.on("get:" + path);
+};
+Server.prototype.post = function(path) {
+	this.on("post:" + path);
+};
+Server.prototype.put = function(path) {
+	this.on("post:" + path);
+};
+Server.prototype.delete = function(path) {
+	this.on("delete:" + path);
+};
+Server.prototype.head = function(path) {
+	this.on("head:" + path);
+};
+Server.prototype.options = function(path) {
+	this.on("options:" + path)
 };
 
 var Request = function (socketId, info, requestString) {
@@ -317,6 +332,44 @@ Response.prototype.send = function(data) {
 		self.end();
 	});
 };
+
+
+Response.prototype.chunk = function(req, file, chunkSize) {
+	if (!chunkSize) {
+		chunkSize = 1024 * 1024;
+	}
+	var self = this;
+
+	this.setHeader('Content-Type', file.type);
+	this.setHeader('Transfer-Encoding', 'chunked');
+	this._sendHeaders(function() {
+		sendChunk(0, chunkSize);
+	});
+
+	function sendChunk(start, end) {
+		// console.log('sendchunk', start, end);
+		var chunk = file.slice(start, end);
+		self.write(chunk.size.toString(16) + '\r\n', function() {
+			// console.log('size written', chunk.size.toString(16));
+			var fileReader = new FileReader();
+			fileReader.onload = function(e) {
+				// console.log('onload');
+				self.write(e.target.result, function() {
+					self.write('\r\n', function(writeInfo) {
+						if (chunk.size > 0) {
+							sendChunk(end, end + chunkSize);
+						} else {
+							self.end();
+						}
+					});
+				});
+			};
+
+			fileReader.readAsArrayBuffer(chunk);
+		});
+		
+	};
+}
 
 Response.prototype.stream = function (req, data, _chunkSize) {
 	var self = this;
