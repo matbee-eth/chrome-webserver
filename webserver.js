@@ -157,13 +157,18 @@ Server.prototype._onAccept = function(acceptInfo) {
 			// Do standard Response setup here
 			res.setHeader('Content-Type', 'text/plain');
 
-			if (req._method.toLowerCase() === 'options') {
-				self.emit('OPTIONS', req, res);
+			// if (req._method.toLowerCase() === 'options') {
+			// 	self.emit('OPTIONS', req, res);
+			// } else {
+			// 	self.emit('request', req, res);
+			// 	self.emit(req._path, req, res);
+			// }
+			if (req._method) {
+				self.emit(req._method.toLowerCase(), req, res);
+				self.emit(req._method.toLowerCase() + ":" + req._path, req, res);	
 			} else {
-				self.emit('request', req, res);
-				self.emit(req._path, req, res);
+				res.end();
 			}
-			self.emit(req._method.toLowerCase() + ":" + req._path);
 		});
 	});
 };
@@ -183,23 +188,23 @@ Server.prototype.setChunkSize = function (chunkSize) {
 Server.prototype.getChunkSize = function () {
 	return this._chunkSize;
 };
-Server.prototype.get = function(path) {
-	this.on("get:" + path);
+Server.prototype.get = function(path, cb) {
+	this.on("get:" + path, cb);
 };
-Server.prototype.post = function(path) {
-	this.on("post:" + path);
+Server.prototype.post = function(path, cb) {
+	this.on("post:" + path, cb);
 };
-Server.prototype.put = function(path) {
-	this.on("post:" + path);
+Server.prototype.put = function(path, cb) {
+	this.on("post:" + path, cb);
 };
-Server.prototype.delete = function(path) {
-	this.on("delete:" + path);
+Server.prototype.delete = function(path, cb) {
+	this.on("delete:" + path, cb);
 };
-Server.prototype.head = function(path) {
-	this.on("head:" + path);
+Server.prototype.head = function(path, cb) {
+	this.on("head:" + path, cb);
 };
-Server.prototype.options = function(path) {
-	this.on("options:" + path)
+Server.prototype.options = function(path, cb) {
+	this.on("options:" + path, cb)
 };
 
 var Request = function (socketId, info, requestString) {
@@ -210,7 +215,7 @@ var Request = function (socketId, info, requestString) {
 	this._path = null;
 	this._headers = new Headers();
 	this._cookies = new Cookies();
-	this._body = null;
+	this.body = {};
 
 	if (info) {
 		this._remoteIp = info.peerAddress;
@@ -265,6 +270,9 @@ Request.prototype.getChunkSize = function (cb) {
 Request.prototype._parseString = function (requestString) {
 	this._method = requestString.substr(0, requestString.indexOf(' '));
 	this._path = requestString.substr(requestString.indexOf(' ') + 1, requestString.indexOf(' HTTP') - requestString.indexOf(' ') - 1);
+	if (this._path.indexOf('?') > -1) {
+		this._path = this._path.substr(0, this._path.indexOf('?'));
+	}
 	var headerLines = requestString.split('\n');
 	for (var n = 0; n < headerLines.length; n++) {
 		var line = headerLines[n];
@@ -275,6 +283,19 @@ Request.prototype._parseString = function (requestString) {
 			var value = line.join(':').trim();
 
 			this._headers.setHeader(key, value);
+		}
+	}
+
+	if (this._method !== 'GET' && requestString.indexOf('\r\n\r\n') > -1) {
+
+		var bodyString = requestString.substr(requestString.indexOf('\r\n\r\n') + 2).trim();
+
+		var bodySplit = bodyString.split('&');
+		for (var n = 0; n < bodySplit.length; n++) {
+			var args = bodySplit[n].split('=');
+			if (args.length === 2) {
+				this.body[args[0]] = args[1];
+			}
 		}
 	}
 }
@@ -339,7 +360,14 @@ Response.prototype.chunk = function(req, file, chunkSize) {
 		chunkSize = 1024 * 1024;
 	}
 	var self = this;
-
+	if (req.isStreaming()) {
+		req.getRange(function (start, end) {
+			if (end == 0 || end == start) {
+				end = file.length - start;
+			}
+			file = file.slice(start, end);
+		});
+	}
 	this.setHeader('Content-Type', file.type);
 	this.setHeader('Transfer-Encoding', 'chunked');
 	this._sendHeaders(function() {
@@ -396,38 +424,43 @@ Response.prototype.stream = function (req, data, _chunkSize) {
 				if (end == 0) {
 					end = start+chunkSize;
 				}
-				// if (!req.isStreaming()) {
-				// 	start = 0;
-				// 	end = data.size;
-				// }
-				// console.log("getRange", start, end, chunkSize);
 				var chunk = data.slice(start, end + 1);
 				end = start + chunk.size - 1;
 				self.setHeader("Content-Length", chunk.size);
 				self.setHeader("Content-Range", "bytes "+start+"-"+end+"/"+data.size); // Should match content-length? Also use byte-byte/* for unknown lengths.
 				self._sendHeaders();
-				var numChunks = 20;
-				var _miniChunkSize = Math.ceil(chunk.size / numChunks);
-				var fileChunkMachineMan = function (chunkNum) {
-					var newChunk = chunk.slice(_miniChunkSize * chunkNum, (_miniChunkSize * chunkNum) + _miniChunkSize);
-					var fileReader = new FileReader();
-					fileReader.onload = function () {
-						self.write(this.result, function (writeInfo) {
-							if (chunkNum == numChunks) {
-								self.end();
-							} else {
-								fileChunkMachineMan(chunkNum+1);
-								// console.log("wtf... something strange, yo", chunk.size, chunk, start, end);
-								// console.log("Content-Range", "bytes "+start+"-"+end+"/"+data.size);
-							}
-						});
-					};
-					fileReader.readAsArrayBuffer(newChunk);
+				var chunkresponse = false;
+				if (chunkresponse === true) {
+					var numChunks = 20;
+					var _miniChunkSize = Math.ceil(chunk.size / numChunks);
+					var fileChunkMachineMan = function (chunkNum) {
+						var newChunk = chunk.slice(_miniChunkSize * chunkNum, (_miniChunkSize * chunkNum) + _miniChunkSize);
+						var fileReader = new FileReader();
+						fileReader.onload = function () {
+							self.write(this.result, function (writeInfo) {
+								if (chunkNum == numChunks) {
+									self.end();
+								} else {
+									fileChunkMachineMan(chunkNum+1);
+									// console.log("wtf... something strange, yo", chunk.size, chunk, start, end);
+									// console.log("Content-Range", "bytes "+start+"-"+end+"/"+data.size);
+								}
+							});
+						};
+						fileReader.readAsArrayBuffer(newChunk);
+					}
+					// setTimeout(function () {
+						fileChunkMachineMan(0);
+					// }, 5);
+				 } else {
+				 	var fileReader = new FileReader();
+				 	fileReader.onload = function () {
+					 	self.write(this.result, function () {
+					 		self.end();
+					 	});
+				 	}
+				 	fileReader.readAsArrayBuffer(chunk);
 				}
-				// setTimeout(function () {
-					fileChunkMachineMan(0);
-				// }, 5);
-		
 			});
 		});
 	} else if (req._method == "HEAD") {
