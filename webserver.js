@@ -416,8 +416,8 @@ Response.prototype.stream = function (req, data, _chunkSize) {
 			self.setStatusCode(206);
 			req.getChunkSize(function (chunkSize) {
 				if (chunkSize == 0) {
-					// chunkSize = self._chunkSize || 5242880;
-					chunkSize = data.size;
+					chunkSize = self._chunkSize || 5242880;
+					// chunkSize = data.size;
 				} else if (_chunkSize) {
 					chunkSize = _chunkSize;
 					end = start + chunkSize;
@@ -430,9 +430,10 @@ Response.prototype.stream = function (req, data, _chunkSize) {
 				self.setHeader("Content-Length", chunk.size);
 				self.setHeader("Content-Range", "bytes "+start+"-"+end+"/"+data.size); // Should match content-length? Also use byte-byte/* for unknown lengths.
 				self._sendHeaders();
-				var chunkresponse = true;
+				var chunkresponse = false;
 				if (chunkresponse === true) {
-					var numChunks = Math.ceil((chunk.size / (1024*1024*25)));
+					// var numChunks = Math.ceil((chunk.size / (1024*1024*25)));
+					var numChunks = 20;
 					var _miniChunkSize = Math.ceil(chunk.size / numChunks);
 					var fileChunkMachineMan = function (chunkNum) {
 						var newChunk = chunk.slice(_miniChunkSize * chunkNum, (_miniChunkSize * chunkNum) + _miniChunkSize);
